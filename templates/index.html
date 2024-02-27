@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Processing</title>
+</head>
+<body>
+    <h1>Image Processing</h1>
+    <form enctype="multipart/form-data" action="/process" method="post" id="upload-form">
+        <input type="file" name="image" accept="image/*" id="image-input" required>
+        <button type="submit">Process Image</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('upload-form').addEventListener('submit', function (e) {
+            document.getElementById('result').innerHTML = '<p>Processing recipe...</p>';
+            var imgElement = document.createElement('img');
+                    imgElement.src = URL.createObjectURL(document.getElementById('image-input').files[0]);
+                    document.getElementById('result').appendChild(imgElement);
+            e.preventDefault();
+
+            var formData = new FormData(this);
+            
+            fetch('/process', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = '<p>' + data.message + '</p>';
+                document.getElementById('result').innerHTML += '<p>Processed recipe: \n' + data.recipe + '</p>';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p>Error processing image</p>';
+            });
+        });
+    </script>
+</body>
+</html>
