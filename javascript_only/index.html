@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipe Extraction Form</title>
+</head>
+
+<body>
+    <h1>Recipe Extraction Form</h1>
+
+    <form id="recipeForm" enctype="multipart/form-data">
+        <label for="imageUpload">Upload Image:</label>
+        <input type="file" id="imageUpload" name="image" accept="image/*" required>
+        <br>
+        <input type="submit" value="Extract Recipe">
+    </form>
+
+    <div id="displayImage"> </div>
+    <div id="displayRecipe"> </div>
+
+    <script type="module">
+        import axios from 'https://cdn.skypack.dev/axios';
+
+        async function extractRecipe(imageFile) {
+            const reader = new FileReader();
+
+            return new Promise((resolve, reject) => {
+                reader.onloadend = async () => {
+                    const imB64 = reader.result.split(',')[1];
+                    var imgElement = document.createElement('img');
+                    imgElement.src = `data:image/jpeg;base64,${imB64}`;
+                    document.getElementById('displayImage').appendChild(imgElement);
+
+                    // const apiKeyFilePath = '/home/pi/chat_gpt_api_key.txt';
+                    // const apiKeyFilePath = '/Users/jlassman/chat_gpt_api_key.txt';
+                    const apiKeyFilePath = '/chat_gpt_api_key.txt';
+                    const apiKey = await fetch(apiKeyFilePath).then(response => response.text()).then(text => text.trim());
+                    // const apiKey = 
+
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    };
+
+                    const payload = {
+                        model: 'gpt-4-vision-preview',
+                        messages: [
+                            {
+                                role: 'user',
+                                content: [
+                                    {
+                                        type: 'text',
+                                        text: `can you take the recipe in the photo and produce a JSON with the following fields if they can be found or inferred?\n
+                                -name (string)\n
+                                -description (string)\n
+                                -servings (string)\n
+                                -total_time (string in the format "{{minutes}}M{{hours}}H")\n
+                                -ingredients (array of strings)\n
+                                -steps (array of strings)\n
+                                \n
+                                note: total_time is the summation of cooking time and prep time if it is not mentioned directly. Print only the JSON itself, no other text. The first character you return should be the opening '{' of the json and the last should be the closing '}' of the json.`
+                                    },
+                                    {
+                                        type: 'image_url',
+                                        image_url: {
+                                            url: `data:image/jpeg;base64,${imB64}`
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        max_tokens: 600
+                    };
+
+                    try {
+                        const response = await axios.post('https://api.openai.com/v1/chat/completions', payload, { headers });
+                        // const jsonResponse = JSON.parse(response.data.choices[0].message.content);
+
+                        const jsonString = response.data.choices[0].message.content;
+                        console.log(jsonString);
+
+                        // Use regular expression to extract content between outermost curly braces
+                        const match = jsonString.match(/(\{[^}]*\})/);
+
+                        if (match && match[1]) {
+                            const extractedContent = match[1];
+                            console.log(extractedContent);
+                            const jsonResponse = JSON.parse(extractedContent);
+                            document.getElementById('displayRecipe').textContent = JSON.stringify(jsonResponse, null, 4);
+                        } else {
+                            console.error('Unable to extract content between outermost curly braces.');
+                        }
+                        resolve(JSON.stringify(jsonResponse, null, 4));
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+
+                reader.readAsDataURL(imageFile);
+            });
+        }
+
+        document.getElementById('recipeForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const formData = new FormData(this);
+            const imageFile = formData.get('image');
+
+
+
+
+            try {
+                const result = await extractRecipe(imageFile);
+                console.log(result);
+                // You can handle the result as needed, for example, display it on the page.
+            } catch (error) {
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+
+</html>
